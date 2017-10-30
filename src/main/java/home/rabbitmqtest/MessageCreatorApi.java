@@ -5,12 +5,12 @@ import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
 
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 
-import home.rabbitmqtest.id.migration.LongMigrationConsumer;
-import home.rabbitmqtest.id.migration.LongMigrationMessage;
-import home.rabbitmqtest.string.migration.StringMigrationConsumer;
-import home.rabbitmqtest.string.migration.StringMigrationMessage;
+import home.rabbitmqtest.id.migration.OrderQueueMessageManager;
+import home.rabbitmqtest.string.migration.StringQueueMessageManager;
 
 @Path("/create")
 public class MessageCreatorApi {
@@ -18,16 +18,24 @@ public class MessageCreatorApi {
 	private RabbitTemplate rabbitTemplate;
 
 	@Autowired
-	private LongMigrationConsumer longMigrationConsumer;
+	private OrderQueueMessageManager orderQueueMessageManager;
 
 	@Autowired
-	private StringMigrationConsumer stringMigrationConsumer;
+	private StringQueueMessageManager stringQueueMessageManager;
+
+	@Autowired
+	@Qualifier("migrateListener-long-failure")
+	private SimpleMessageListenerContainer longFailureMigrationListener;
+
+	@Autowired
+	@Qualifier("migrateListener-string-failure")
+	private SimpleMessageListenerContainer stringFailureMigrationListener;
 
 	@GET
 	@Path("/number")
 	public String createNumberNotifications(@QueryParam("messages") Long noMessages) {
-		for (int i=0; i < noMessages; i++) {
-			rabbitTemplate.convertAndSend(longMigrationConsumer.getListeningQueueName(), new LongMigrationMessage(new Long(i)));
+		for (long i=0; i < noMessages; i++) {
+			orderQueueMessageManager.publishMessage(i);
 		}
 		return "Number notifications created!";
 	}
@@ -35,7 +43,7 @@ public class MessageCreatorApi {
 	@GET
 	@Path("/number/retryFailed")
 	public String retryFailedNotifications() {
-		longMigrationConsumer.moveFromFailureToUnprocessedQueue();
+		longFailureMigrationListener.start();
 		return "Retry triggered!";
 	}
 
@@ -43,7 +51,7 @@ public class MessageCreatorApi {
 	@Path("/text")
 	public String createStringNotifications(@QueryParam("messages") Long noMessages) {
 		for (int i=0; i < noMessages; i++) {
-			rabbitTemplate.convertAndSend(stringMigrationConsumer.getListeningQueueName(), new StringMigrationMessage(Integer.toString(i)));
+			stringQueueMessageManager.publishMessage(Integer.toString(i));
 		}
 		return "String notifications created!";
 	}
@@ -51,7 +59,7 @@ public class MessageCreatorApi {
 	@GET
 	@Path("/text/retryFailed")
 	public String retryTextFailedNotifications() {
-		stringMigrationConsumer.moveFromFailureToUnprocessedQueue();
+		stringFailureMigrationListener.start();
 		return "Retry triggered!";
 	}
 }

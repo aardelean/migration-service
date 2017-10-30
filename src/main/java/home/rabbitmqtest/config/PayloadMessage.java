@@ -2,20 +2,13 @@ package home.rabbitmqtest.config;
 
 import java.io.Serializable;
 
-public abstract class AbstractMigrationMessage<T> implements Serializable{
-	private T payload;
+public abstract class PayloadMessage<T> implements Serializable{
 	private int failures = 0;
 	private String cause;
 
-	public AbstractMigrationMessage(T payload) {
-		this.payload = payload;
-	}
+	public abstract T getPayload();
 
-	public AbstractMigrationMessage() {}
-
-	public T getPayload() {
-		return payload;
-	}
+	public PayloadMessage() {}
 
 	public int getFailures() {
 		return failures;
